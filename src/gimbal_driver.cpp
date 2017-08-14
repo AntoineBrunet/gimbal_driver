@@ -1,5 +1,6 @@
 #include "gimbal_driver/gimbal_driver.h"
 #include <string>
+#include <cmath>
 
 using namespace gimbal_driver;
 
@@ -48,7 +49,61 @@ GimbalDriver::GimbalDriver() :
 		delete info;
 	}
 
+	multi_driver.initSyncWrite();
 	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("gimbal_state", 10);
+	sub_gbset = node.subscribe("gimbal_set_position", 10, &GimbalDriver::set_pos, this);
+}
+
+
+uint32_t GimbalDriver::convertRad2Val(float radian)
+{
+	float min_radian = multi_driver.multi_dynamixel_[0]->min_radian_;
+	float max_radian = multi_driver.multi_dynamixel_[0]->max_radian_;
+	uint32_t v_zero = multi_driver.multi_dynamixel_[0]->value_of_0_radian_position_;
+	uint32_t v_min = multi_driver.multi_dynamixel_[0]->value_of_min_radian_position_;
+	uint32_t v_max = multi_driver.multi_dynamixel_[0]->value_of_max_radian_position_;
+
+	while (radian > max_radian) { radian -= 2*M_PI; }
+	while (radian < min_radian) { radian += 2*M_PI; }
+
+	//ROS_INFO("Values: %d(%f rad), %d(0 rad) , %d(%f rad)",v_min, min_radian, v_zero, v_max, max_radian);
+	if (radian > 0) {
+		if (v_max <= v_zero)
+			return v_max;
+		return v_zero + (radian/max_radian * (v_max - v_zero));
+	} else if (radian < 0) {
+		if (v_min >= v_zero)
+			return v_min;
+		return v_zero - (radian/min_radian * (v_zero - v_min));
+	} 
+	return v_zero;
+}
+
+
+void GimbalDriver::set_pos(const cmg_msgs::GimbalPositions::ConstPtr & msg) {
+	std::vector<uint32_t> pos;
+	for (float p : msg->positions) {
+		pos.push_back(convertRad2Val(p));
+	}
+	while (pos.size() < multi_driver.multi_dynamixel_.size()) {
+		pos.push_back(convertRad2Val(0.));
+	}
+	if (!multi_driver.syncWritePosition(pos)) {
+		ROS_ERROR("Gimbal set position failed");
+		for (uint32_t p : pos) {
+			ROS_ERROR("%ud",p);
+		}
+	}
+}
+
+void GimbalDriver::set_torque(bool on) {
+	std::vector<uint8_t> trs;
+	while (trs.size() < multi_driver.multi_dynamixel_.size()) {
+		trs.push_back(on);
+	}
+	if (!multi_driver.syncWriteTorque(trs)) {
+		ROS_ERROR("Gimbal set torque failed");
+	}
 }
 
 void GimbalDriver::publish() {
@@ -82,6 +137,7 @@ void GimbalDriver::publish() {
 int main(int argc, char * argv[]) {
 	ros::init(argc, argv, "gimbal_driver");
 	GimbalDriver gd;
+	gd.set_torque(true);
 	int rate; ros::param::param<int>("~gimbal_pub_freq", rate,  1);
 	ros::Rate pub_rate(rate);
 	while (ros::ok()) {
@@ -89,4 +145,5 @@ int main(int argc, char * argv[]) {
 		ros::spinOnce();
 		pub_rate.sleep();
 	}
+	gd.set_torque(false);
 }
