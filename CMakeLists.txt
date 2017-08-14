@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamixel_workbench_toolbox
   roscpp
   std_msgs
+  cmg_msgs
 )
 
 ## System dependencies are found with CMake's conventions
