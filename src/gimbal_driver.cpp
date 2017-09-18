@@ -50,8 +50,8 @@ GimbalDriver::GimbalDriver() :
 	}
 
 	multi_driver.initSyncWrite();
-	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("gimbal_state", 10);
-	sub_gbset = node.subscribe("gimbal_set_position", 10, &GimbalDriver::set_pos, this);
+	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("state", 10);
+	sub_gbset = node.subscribe("target", 10, &GimbalDriver::set_pos, this);
 }
 
 
@@ -79,19 +79,40 @@ uint32_t GimbalDriver::convertRad2Val(float radian)
 	return v_zero;
 }
 
+int32_t GimbalDriver::convertRps2Val(float rps)
+{
+	float k = multi_driver.multi_dynamixel_[0]->velocity_to_value_ratio_;
+	return (int32_t) rps*k;
+}
 
-void GimbalDriver::set_pos(const cmg_msgs::GimbalPositions::ConstPtr & msg) {
-	std::vector<uint32_t> pos;
-	for (float p : msg->positions) {
-		pos.push_back(convertRad2Val(p));
-	}
-	while (pos.size() < multi_driver.multi_dynamixel_.size()) {
-		pos.push_back(convertRad2Val(0.));
-	}
-	if (!multi_driver.syncWritePosition(pos)) {
-		ROS_ERROR("Gimbal set position failed");
-		for (uint32_t p : pos) {
-			ROS_ERROR("%ud",p);
+void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
+	if (msg->mode == 0) {
+		std::vector<uint32_t> pos;
+		for (float p : msg->positions) {
+			pos.push_back(convertRad2Val(p));
+		}
+		while (pos.size() < multi_driver.multi_dynamixel_.size()) {
+			pos.push_back(convertRad2Val(0.));
+		}
+		if (!multi_driver.syncWritePosition(pos)) {
+			ROS_ERROR("Gimbal set position failed");
+			for (uint32_t p : pos) {
+				ROS_ERROR("%ud",p);
+			}
+		}
+	} else {
+		std::vector<int32_t> pos;
+		for (float p : msg->positions) {
+			pos.push_back(convertRps2Val(p));
+		}
+		while (pos.size() < multi_driver.multi_dynamixel_.size()) {
+			pos.push_back(convertRps2Val(0.));
+		}
+		if (!multi_driver.syncWriteVelocity(pos)) {
+			ROS_ERROR("Gimbal set velocity failed");
+			for (int32_t p : pos) {
+				ROS_ERROR("%ud",p);
+			}
 		}
 	}
 }

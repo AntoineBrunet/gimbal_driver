@@ -5,7 +5,7 @@
 #include <ros/ros.h>
 #include <dynamixel_workbench_toolbox/dynamixel_multi_driver.h>
 #include <dynamixel_workbench_msgs/DynamixelStateList.h>
-#include <cmg_msgs/GimbalPositions.h>
+#include <cmg_msgs/GimbalTarget.h>
 
 namespace gimbal_driver {
 
@@ -18,11 +18,12 @@ namespace gimbal_driver {
 			dynamixel_multi_driver::DynamixelMultiDriver multi_driver;
 
 			uint32_t convertRad2Val(float radian);
+			int32_t convertRps2Val(float rps);
 		public:
 			GimbalDriver();
 			void publish();
 			void set_torque(bool on);
-			void set_pos(const cmg_msgs::GimbalPositions::ConstPtr & msg);
+			void set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg);
 	};
 }
 
