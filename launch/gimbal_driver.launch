@@ -1,6 +1,6 @@
 <launch>
   <node name="gimbal_driver" pkg="gimbal_driver" type="node" output="screen">
-	<rosparam param="gimbal_ids">[102, 101]</rosparam>
+	<rosparam param="gimbal_ids">[107,108]</rosparam>
 	<rosparam param="gimbal_dev">/dev/ttyUSB0</rosparam>
 	<rosparam param="gimbal_baud">57600</rosparam>
 	<rosparam param="gimbal_protocol_version">2.0</rosparam>

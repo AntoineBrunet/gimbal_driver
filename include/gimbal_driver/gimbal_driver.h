@@ -16,6 +16,8 @@ namespace gimbal_driver {
 			ros::Subscriber sub_gbset;
 			std::vector<int> ids;
 			dynamixel_multi_driver::DynamixelMultiDriver multi_driver;
+			dynamixel::GroupSyncWrite * modeSyncWrite;
+			uint8_t current_mode;
 
 			uint32_t convertRad2Val(float radian);
 			int32_t convertRps2Val(float rps);
@@ -23,6 +25,7 @@ namespace gimbal_driver {
 			GimbalDriver();
 			void publish();
 			void set_torque(bool on);
+			void set_mode(uint8_t on);
 			void set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg);
 	};
 }

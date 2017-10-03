@@ -52,6 +52,7 @@ GimbalDriver::GimbalDriver() :
 	multi_driver.initSyncWrite();
 	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("state", 10);
 	sub_gbset = node.subscribe("target", 10, &GimbalDriver::set_pos, this);
+	modeSyncWrite = multi_driver.setSyncWrite("operating_mode");
 }
 
 
@@ -87,6 +88,7 @@ int32_t GimbalDriver::convertRps2Val(float rps)
 
 void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 	if (msg->mode == 0) {
+		set_mode(3);
 		std::vector<uint32_t> pos;
 		for (float p : msg->positions) {
 			pos.push_back(convertRad2Val(p));
@@ -101,9 +103,11 @@ void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 			}
 		}
 	} else {
+		set_mode(1);
 		std::vector<int32_t> pos;
 		for (float p : msg->positions) {
 			pos.push_back(convertRps2Val(p));
+			ROS_INFO("%d velocity -> %d", pos.size(), pos[pos.size()-1]);
 		}
 		while (pos.size() < multi_driver.multi_dynamixel_.size()) {
 			pos.push_back(convertRps2Val(0.));
@@ -125,6 +129,20 @@ void GimbalDriver::set_torque(bool on) {
 	if (!multi_driver.syncWriteTorque(trs)) {
 		ROS_ERROR("Gimbal set torque failed");
 	}
+}
+
+void GimbalDriver::set_mode(uint8_t mode) {
+	if (mode == current_mode) { return; }
+	set_torque(false);
+	for (int id : ids) {
+		modeSyncWrite->addParam((uint8_t)id, &mode);
+	}
+	int res = modeSyncWrite->txPacket();
+	if (res != COMM_SUCCESS) {
+		ROS_ERROR("Mode change error");
+	}
+	current_mode = mode;
+	set_torque(true);
 }
 
 void GimbalDriver::publish() {
