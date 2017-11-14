@@ -33,25 +33,27 @@ GimbalDriver::GimbalDriver() :
 
 		infos.push_back(info);
 	}
-	if (multi_driver.loadDynamixel(infos)) {
-		ROS_INFO("-----------------------------------");
-		ROS_INFO("        Gimbal Driver Infos        ");
-		ROS_INFO("-----------------------------------");
-		for (auto info: infos) {
-			ROS_INFO("%d : %s", info->model_id, info->model_name.c_str());
-		}
-		ROS_INFO("-----------------------------------");
-	} else {
-		ROS_ERROR("Can't load Dynamixels.");
+	int t_wait = 1;
+	while (!multi_driver.loadDynamixel(infos) && ros::ok()) {
+		ROS_ERROR("Can't load Dynamixels. Trying again in %d sec.",t_wait);
+		ros::Duration(t_wait).sleep();
+		t_wait++;
 	}
+	ROS_INFO("-----------------------------------");
+	ROS_INFO("        Gimbal Driver Infos        ");
+	ROS_INFO("-----------------------------------");
+	for (auto info: infos) {
+		ROS_INFO("%d : %s", info->model_id, info->model_name.c_str());
+	}
+	ROS_INFO("-----------------------------------");
 
 	for (dynamixel_driver::DynamixelInfo * info: infos) {
 		delete info;
 	}
 
 	multi_driver.initSyncWrite();
-	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("state", 10);
-	sub_gbset = node.subscribe("target", 10, &GimbalDriver::set_pos, this);
+	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("/gimbal/state", 10);
+	sub_gbset = node.subscribe("/gimbal/cmd", 10, &GimbalDriver::set_pos, this);
 	modeSyncWrite = multi_driver.setSyncWrite("operating_mode");
 }
 
