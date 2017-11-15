@@ -4,7 +4,7 @@
 #include <vector>
 #include <ros/ros.h>
 #include <dynamixel_workbench_toolbox/dynamixel_multi_driver.h>
-#include <dynamixel_workbench_msgs/DynamixelStateList.h>
+#include <cmg_msgs/DynamixelStateList.h>
 #include <cmg_msgs/GimbalTarget.h>
 
 namespace gimbal_driver {
@@ -21,6 +21,8 @@ namespace gimbal_driver {
 
 			uint32_t convertRad2Val(float radian);
 			int32_t convertRps2Val(float rps);
+			float convertVal2Rps(int32_t val);
+			float convertVal2Rad(uint32_t val);
 		public:
 			GimbalDriver();
 			void publish();

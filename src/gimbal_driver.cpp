@@ -52,7 +52,7 @@ GimbalDriver::GimbalDriver() :
 	}
 
 	multi_driver.initSyncWrite();
-	state_pub = node.advertise<dynamixel_workbench_msgs::DynamixelStateList>("/gimbal/state", 10);
+	state_pub = node.advertise<cmg_msgs::DynamixelStateList>("/gimbal/state", 10);
 	sub_gbset = node.subscribe("/gimbal/cmd", 10, &GimbalDriver::set_pos, this);
 	modeSyncWrite = multi_driver.setSyncWrite("operating_mode");
 }
@@ -82,11 +82,29 @@ uint32_t GimbalDriver::convertRad2Val(float radian)
 	return v_zero;
 }
 
+float GimbalDriver::convertVal2Rad(uint32_t val)
+{
+	float min_radian = multi_driver.multi_dynamixel_[0]->min_radian_;
+	float max_radian = multi_driver.multi_dynamixel_[0]->max_radian_;
+	uint32_t v_zero = multi_driver.multi_dynamixel_[0]->value_of_0_radian_position_;
+	uint32_t v_min = multi_driver.multi_dynamixel_[0]->value_of_min_radian_position_;
+	uint32_t v_max = multi_driver.multi_dynamixel_[0]->value_of_max_radian_position_;
+
+	return min_radian + (max_radian - min_radian) * (val-v_min) / (v_max - v_min);
+}
+
 int32_t GimbalDriver::convertRps2Val(float rps)
 {
 	float k = multi_driver.multi_dynamixel_[0]->velocity_to_value_ratio_;
 	return (int32_t) rps*k;
 }
+
+float GimbalDriver::convertVal2Rps(int32_t val)
+{
+	float k = multi_driver.multi_dynamixel_[0]->velocity_to_value_ratio_;
+	return val/k;
+}
+
 
 void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 	if (msg->mode == 0) {
@@ -109,7 +127,7 @@ void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 		std::vector<int32_t> pos;
 		for (float p : msg->positions) {
 			pos.push_back(convertRps2Val(p));
-			ROS_INFO("%d velocity -> %d", pos.size(), pos[pos.size()-1]);
+			ROS_INFO("%d velocity -> %d (%f)", pos.size(), pos[pos.size()-1], p);
 		}
 		while (pos.size() < multi_driver.multi_dynamixel_.size()) {
 			pos.push_back(convertRps2Val(0.));
@@ -148,29 +166,21 @@ void GimbalDriver::set_mode(uint8_t mode) {
 }
 
 void GimbalDriver::publish() {
-	int size = ids.size();
-	multi_driver.readMultiRegister("torque_enable");
-	multi_driver.readMultiRegister("moving");
 	multi_driver.readMultiRegister("present_position");
 	multi_driver.readMultiRegister("goal_position");
 	multi_driver.readMultiRegister("present_velocity");
 	multi_driver.readMultiRegister("goal_velocity");
-	multi_driver.readMultiRegister("present_current");
-	multi_driver.readMultiRegister("goal_current");
-	dynamixel_workbench_msgs::DynamixelStateList pub_msg;
+	multi_driver.readMultiRegister("present_temperature");
+	cmg_msgs::DynamixelStateList pub_msg;
+	int size = ids.size();
 	for (int i = 0; i < size; i++) {
-		dynamixel_workbench_msgs::DynamixelState state;
-		state.model_name		= multi_driver.multi_dynamixel_[i]->model_name_;
-		state.id				= multi_driver.multi_dynamixel_[i]->id_;
-		state.torque_enable		= multi_driver.read_value_["torque_enable"]->at(i);
-		state.moving			= multi_driver.read_value_["moving"]->at(i);
-		state.present_position	= multi_driver.read_value_["present_position"]->at(i);
-		state.goal_position		= multi_driver.read_value_["goal_position"]->at(i);
-		state.present_velocity	= multi_driver.read_value_["present_velocity"]->at(i);
-		state.goal_velocity		= multi_driver.read_value_["goal_velocity"]->at(i);
-		state.present_current	= multi_driver.read_value_["present_current"]->at(i);
-		state.goal_current		= multi_driver.read_value_["goal_current"]->at(i);
-		pub_msg.dynamixel_state.push_back(state);
+		cmg_msgs::DynamixelState state;
+		state.present_position	= convertVal2Rad(multi_driver.read_value_["present_position"]->at(i));
+		state.goal_position	= convertVal2Rad(multi_driver.read_value_["goal_position"]->at(i));
+		state.present_velocity	= convertVal2Rps(multi_driver.read_value_["present_velocity"]->at(i));
+		state.goal_velocity	= convertVal2Rps(multi_driver.read_value_["goal_velocity"]->at(i));
+		state.present_temperature = multi_driver.read_value_["present_temperature"]->at(i);
+		pub_msg.states.push_back(state);
 	}
 	state_pub.publish(pub_msg);
 }
