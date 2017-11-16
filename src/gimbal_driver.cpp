@@ -96,7 +96,7 @@ float GimbalDriver::convertVal2Rad(uint32_t val)
 int32_t GimbalDriver::convertRps2Val(float rps)
 {
 	float k = multi_driver.multi_dynamixel_[0]->velocity_to_value_ratio_;
-	return (int32_t) rps*k;
+	return (int32_t) (rps*k);
 }
 
 float GimbalDriver::convertVal2Rps(int32_t val)
@@ -121,6 +121,8 @@ void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 			for (uint32_t p : pos) {
 				ROS_ERROR("%ud",p);
 			}
+		} else {
+			ROS_INFO("Gimbal set position ok");
 		}
 	} else {
 		set_mode(1);
@@ -137,6 +139,8 @@ void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 			for (int32_t p : pos) {
 				ROS_ERROR("%ud",p);
 			}
+		} else {
+			ROS_INFO("Gimbal set velocity ok");
 		}
 	}
 }
@@ -148,6 +152,8 @@ void GimbalDriver::set_torque(bool on) {
 	}
 	if (!multi_driver.syncWriteTorque(trs)) {
 		ROS_ERROR("Gimbal set torque failed");
+	} else {
+		ROS_INFO("Gimbal set torque to %s OK", on?"ON":"OFF");
 	}
 }
 
@@ -160,8 +166,11 @@ void GimbalDriver::set_mode(uint8_t mode) {
 	int res = modeSyncWrite->txPacket();
 	if (res != COMM_SUCCESS) {
 		ROS_ERROR("Mode change error");
+	} else {
+		current_mode = mode;
+		ROS_INFO("Set mode = %d", mode);
 	}
-	current_mode = mode;
+	modeSyncWrite->clearParam();
 	set_torque(true);
 }
 
