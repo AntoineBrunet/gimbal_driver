@@ -53,8 +53,9 @@ GimbalDriver::GimbalDriver() :
 
 	multi_driver.initSyncWrite();
 	state_pub = node.advertise<cmg_msgs::DynamixelStateList>("/gimbal/state", 10);
-	sub_gbset = node.subscribe("/gimbal/cmd", 10, &GimbalDriver::set_pos, this);
+	sub_gbset = node.subscribe("/gimbal/cmd", 3, &GimbalDriver::set_pos, this);
 	modeSyncWrite = multi_driver.setSyncWrite("operating_mode");
+	current_mode = 12;
 }
 
 
@@ -172,22 +173,23 @@ void GimbalDriver::set_mode(uint8_t mode) {
 	}
 	modeSyncWrite->clearParam();
 	set_torque(true);
+	ros::Duration(0.1).sleep();
 }
 
 void GimbalDriver::publish() {
 	multi_driver.readMultiRegister("present_position");
-	multi_driver.readMultiRegister("goal_position");
+	//multi_driver.readMultiRegister("goal_position");
 	multi_driver.readMultiRegister("present_velocity");
-	multi_driver.readMultiRegister("goal_velocity");
+	//multi_driver.readMultiRegister("goal_velocity");
 	multi_driver.readMultiRegister("present_temperature");
 	cmg_msgs::DynamixelStateList pub_msg;
 	int size = ids.size();
 	for (int i = 0; i < size; i++) {
 		cmg_msgs::DynamixelState state;
 		state.present_position	= convertVal2Rad(multi_driver.read_value_["present_position"]->at(i));
-		state.goal_position	= convertVal2Rad(multi_driver.read_value_["goal_position"]->at(i));
+		//state.goal_position	= convertVal2Rad(multi_driver.read_value_["goal_position"]->at(i));
 		state.present_velocity	= convertVal2Rps(multi_driver.read_value_["present_velocity"]->at(i));
-		state.goal_velocity	= convertVal2Rps(multi_driver.read_value_["goal_velocity"]->at(i));
+		//state.goal_velocity	= convertVal2Rps(multi_driver.read_value_["goal_velocity"]->at(i));
 		state.present_temperature = multi_driver.read_value_["present_temperature"]->at(i);
 		pub_msg.states.push_back(state);
 	}
@@ -199,11 +201,24 @@ int main(int argc, char * argv[]) {
 	GimbalDriver gd;
 	gd.set_torque(true);
 	int rate; ros::param::param<int>("~gimbal_pub_freq", rate,  1);
-	ros::Rate pub_rate(rate);
-	while (ros::ok()) {
-		gd.publish();
-		ros::spinOnce();
-		pub_rate.sleep();
+	if (rate > 50) {
+		while (ros::ok()) {
+			gd.publish();
+			ros::spinOnce();
+		}
+
+	} else {
+		ros::Rate pub_rate(2*rate);
+		bool pub = true;
+		while (ros::ok()) {
+			if(pub) {
+				gd.publish();
+			} else {
+				ros::spinOnce();
+			}
+			pub = !pub;
+			pub_rate.sleep();
+		}
 	}
 	gd.set_torque(false);
 }
