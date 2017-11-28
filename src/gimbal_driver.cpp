@@ -90,8 +90,11 @@ float GimbalDriver::convertVal2Rad(uint32_t val)
 	uint32_t v_zero = multi_driver.multi_dynamixel_[0]->value_of_0_radian_position_;
 	uint32_t v_min = multi_driver.multi_dynamixel_[0]->value_of_min_radian_position_;
 	uint32_t v_max = multi_driver.multi_dynamixel_[0]->value_of_max_radian_position_;
-
-	return min_radian + (max_radian - min_radian) * (val-v_min) / (v_max - v_min);
+	uint32_t v_2pi = (v_max - v_min)*(2*M_PI / (max_radian - min_radian));
+	while (val > v_max) { val -= v_2pi; }
+        while (val < v_min) { val += v_2pi; }
+	float radians = min_radian + (max_radian - min_radian) * (val-v_min) / (v_max - v_min);
+	return radians;
 }
 
 int32_t GimbalDriver::convertRps2Val(float rps)
@@ -130,7 +133,7 @@ void GimbalDriver::set_pos(const cmg_msgs::GimbalTarget::ConstPtr & msg) {
 		std::vector<int32_t> pos;
 		for (float p : msg->positions) {
 			pos.push_back(convertRps2Val(p));
-			ROS_INFO("%d velocity -> %d (%f)", pos.size(), pos[pos.size()-1], p);
+			ROS_INFO("%lu velocity -> %ud (%f)", pos.size(), pos[pos.size()-1], p);
 		}
 		while (pos.size() < multi_driver.multi_dynamixel_.size()) {
 			pos.push_back(convertRps2Val(0.));
