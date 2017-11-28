@@ -196,6 +196,7 @@ void GimbalDriver::publish() {
 		state.present_temperature = multi_driver.read_value_["present_temperature"]->at(i);
 		pub_msg.states.push_back(state);
 	}
+	pub_msg.header.stamp = ros::Time::now();
 	state_pub.publish(pub_msg);
 }
 
